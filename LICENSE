@@ -1,0 +1,55 @@
+# Auxiliary Fuel Cars
+
+A [Unity Mod Manager](https://www.nexusmods.com/site/mods/21) mod for [Railroader](https://store.steampowered.com/app/1784630/Railroader/) that adds auxiliary tender and fuel cars to extend the range of steam and diesel locomotives.
+
+## Cars
+
+### Steam Auxiliary Tenders
+
+Couple one of the three aux tender variants behind your primary tender. The aux drains first — the primary only starts dropping once the aux is empty.
+
+| Car Type | Name | Coal | Water |
+|---|---|---|---|
+| `AUXB` | Aux Tender – Balanced | 30,000 lb | 10,000 gal |
+| `AUXC` | Aux Tender – Coal Heavy | 60,000 lb (30 tons) | — |
+| `AUXW` | Aux Tender – Water Heavy | — | 13,597 gal |
+
+All three use the K5 Pacific (P-43) tender model and can be filled at coal loaders and water towers normally.
+
+**Standard consist:** `[Steam Loco] — [Primary Tender] — [Aux Tender]`
+
+**Back-to-back MU:** A single shared aux tender between two locos is supported.
+`[Loco 1] — [Tender 1] — [Aux Tender] — [Tender 2] — [Loco 2]`
+
+### Diesel Fuel Tender
+
+Couple the diesel fuel tender at either end of a diesel locomotive. The aux drains first; the loco's own tank only starts dropping once the aux is empty. Can be filled at fuel stands and can receive waybills from the interchange.
+
+| Car Type | Name | Diesel |
+|---|---|---|
+| `DT` | Diesel Fuel Tender | 8,000 gal |
+
+Uses the USRA tank car (tankcar02) model.
+
+**Consist:** `[Aux Tank] — [Diesel Loco]` or `[Diesel Loco] — [Aux Tank]`
+
+## MU Safety
+
+- Only cars from this mod are eligible as aux sources — vanilla rolling stock and third-party cars are never drained.
+- Aux tenders carry `CarArchetype.Tender` so vanilla MU control passes through them transparently, same as a primary tender.
+- A patch to `BaseLocomotive.FindSourceLocomotive` ensures MU control also passes through aux diesel cars in a consist.
+
+## Installation
+
+1. Install [Unity Mod Manager](https://www.nexusmods.com/site/mods/21) for Railroader if you haven't already.
+2. Download the latest release zip and install it via the UMM installer, or extract the `ExtraTenders` folder into your `Mods` directory.
+3. Launch the game — the new cars appear in the car placer immediately.
+
+## Compatibility
+
+- **Railloader**: not required (Railloader is deprecated).
+- **DPC / DPU mods**: no conflict — fuel transfer logic is fully independent of MU control.
+
+## License
+
+MIT
