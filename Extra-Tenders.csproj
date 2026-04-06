@@ -1,0 +1,10 @@
+{
+  "Id": "AuxiliaryFuelCars",
+  "DisplayName": "Auxiliary Fuel Cars",
+  "Author": "ashenmare",
+  "Version": "0.1.0",
+  "ManagerVersion": "0.27.0",
+  "Game": "Railroader",
+  "AssemblyName": "Extra-Tenders.dll",
+  "EntryMethod": "ExtraTenders.Main.Load"
+}
