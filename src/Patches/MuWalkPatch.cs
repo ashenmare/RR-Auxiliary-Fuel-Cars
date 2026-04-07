@@ -10,15 +10,12 @@ namespace ExtraTenders.Patches;
 /// FindSourceLocomotive and skips cars with CarArchetype.Tender —
 /// that's why vanilla steam tenders are "transparent" to MU.
 ///
-/// Any other non-locomotive car (e.g. a tank car used as a diesel aux tank)
-/// breaks the walk: the method returns null and the trailing loco loses MU.
+/// Any other non-locomotive car breaks the walk: the method returns null
+/// and the trailing loco loses MU.
 ///
 /// This patch replaces FindSourceLocomotive with a copy that also skips
-/// aux fuel cars (non-loco cars carrying diesel-fuel), so the vanilla MU
+/// our aux cars (DT diesel tank, AUXB steam tender) so the vanilla MU
 /// behaviour is preserved for DPC-free players.
-///
-/// Steam aux tenders are already handled because they carry
-/// CarArchetype.Tender; no change needed for them.
 /// </summary>
 [HarmonyPatch(typeof(BaseLocomotive), "FindSourceLocomotive")]
 internal static class MuWalkPatch
@@ -55,7 +52,7 @@ internal static class MuWalkPatch
         {
             if (car == __instance)                    continue; // skip self
             if (car.Archetype == CarArchetype.Tender) continue; // vanilla tender skip
-            if (IsAuxFuelCar(car))                    continue; // our diesel tank skip
+            if (IsOurAuxCar(car))                     continue; // our aux cars skip
 
             // Anything else that is not a locomotive stops the walk.
             if (!car.IsLocomotive || car is not BaseLocomotive sourceLoco)
@@ -76,9 +73,8 @@ internal static class MuWalkPatch
         return false;
     }
 
-    // A diesel aux fuel car: any non-locomotive car that carries diesel fuel.
-    // We only need to exempt diesel cars here; steam aux tenders have
-    // CarArchetype.Tender and are already skipped by the vanilla check above.
-    private static bool IsAuxFuelCar(Car car) =>
-        !car.IsLocomotive && FuelTransfer.HasLoad(car, "diesel-fuel");
+    // Our aux cars: DT (diesel fuel tender) and AUXT (steam aux tender).
+    // Both use Tank archetype so they are spawnable, but must not break the MU walk.
+    private static bool IsOurAuxCar(Car car) =>
+        car.CarType == "DT" || car.CarType == "AUXT";
 }

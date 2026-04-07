@@ -67,10 +67,7 @@ internal static class SteamLocomotivePatch
         return false;
     }
 
-    // Only drain cars we created — all our aux tender carTypes start with "AUX".
-    // Vanilla tenders never use this prefix, so facing tenders in back-to-back
-    // MU consists ([L1]—[T1]—[T2]—[L2]) are still safe.
-    private static bool IsOurAuxTender(Car car) =>
-        car.CarType.StartsWith("AUX", System.StringComparison.Ordinal);
+    // Only drain cars we created — carType "AUXT" is our steam aux tender.
+    private static bool IsOurAuxTender(Car car) => car.CarType == "AUXT";
 
 }

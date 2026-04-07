@@ -8,7 +8,7 @@ public class Settings : UnityModManager.ModSettings
     public float LoadMultiplier = 10f;
 
     /// <summary>Percentage of capacity our aux cars spawn with (0 = empty).</summary>
-    public float StartingFuelPercent = 0f;
+    public float StartingFuelPercent = 20f;
 
     public override void Save(UnityModManager.ModEntry modEntry) => Save(this, modEntry);
 }
