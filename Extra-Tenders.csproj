@@ -1,10 +1,67 @@
-{
-  "Id": "AuxiliaryFuelCars",
-  "DisplayName": "Auxiliary Fuel Cars",
-  "Author": "ashenmare",
-  "Version": "0.1.0",
-  "ManagerVersion": "0.27.0",
-  "Game": "Railroader",
-  "AssemblyName": "Extra-Tenders.dll",
-  "EntryMethod": "ExtraTenders.Main.Load"
-}
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>Extra-Tenders</AssemblyName>
+    <RootNamespace>ExtraTenders</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Unity / UMM runtime — do not ship with the mod -->
+    <Reference Include="UnityEngine">
+      <HintPath>libs\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>libs\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>libs\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityModManager">
+      <HintPath>libs\UnityModManager.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- Harmony patching -->
+    <Reference Include="0Harmony">
+      <HintPath>libs\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- Railroader game assemblies -->
+    <Reference Include="Assembly-CSharp">
+      <HintPath>libs\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Definition">
+      <HintPath>libs\Definition.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Core">
+      <HintPath>libs\Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ZipMod" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <PackageDir>$(OutputPath)package\AuxiliaryFuelCars</PackageDir>
+      <ZipPath>$(OutputPath)AuxiliaryFuelCars.zip</ZipPath>
+    </PropertyGroup>
+    <RemoveDir Directories="$(OutputPath)package" />
+    <MakeDir Directories="$(PackageDir)" />
+    <Copy SourceFiles="$(OutputPath)Extra-Tenders.dll" DestinationFolder="$(PackageDir)" />
+    <Copy SourceFiles="Info.json"                      DestinationFolder="$(PackageDir)" />
+    <ZipDirectory SourceDirectory="$(OutputPath)package"
+                  DestinationFile="$(ZipPath)"
+                  Overwrite="true" />
+    <Message Text="Package: $(ZipPath)" Importance="high" />
+  </Target>
+
+</Project>
