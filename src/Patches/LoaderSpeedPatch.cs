@@ -27,7 +27,7 @@ internal static class LoaderSpeedPatch
     private static bool IsOurCar(OpsCarAdapter car)
     {
         var t = car.CarType;
-        return t == "DT" || t.StartsWith("AUX", System.StringComparison.Ordinal);
+        return t == "DT" || t == "AUXT";
     }
 
     private static bool IsFuelLoad(Load load)
