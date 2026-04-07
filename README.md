@@ -2,13 +2,13 @@
 
 A [Unity Mod Manager](https://www.nexusmods.com/site/mods/21) mod for [Railroader](https://store.steampowered.com/app/1784630/Railroader/) that adds auxiliary tender and fuel cars to extend the range of steam and diesel locomotives.
 
-Cars spawn with 20% fuel by default (configurable in the UMM settings panel). Aux cars drain first then the locomotive's primary supply only starts dropping once the aux is empty.
+Cars spawn with 20% fuel by default (configurable in the UMM settings panel). Aux cars drain first — the locomotive's primary supply only starts dropping once the aux is empty.
 
 ## Cars
 
 ### Steam Aux Tender (`AUXT`)
 
-Reuses the K5 Pacific (P-43) tender model. Carries both coal and water, matching vanilla P-43 tender capacity. Couple it behind the primary tender, and coal and water are topped up automatically every fuel tick.
+Reuses the K5 Pacific (P-43) tender model. Carries both coal and water, matching vanilla P-43 tender capacity. Couple it behind the primary tender — coal and water are topped up automatically each fuel tick.
 
 | Name | Coal | Water |
 |---|---|---|
@@ -31,11 +31,6 @@ Reuses the USRA single-dome tank car (tankcar02) model. Couple it at either end 
 
 **Consist:** `[Aux Tank] — [Diesel Loco]` or `[Diesel Loco] — [Aux Tank]`
 
-## Cost
-Aux Tender (AUXT): $4,000
-
-Diesel Fuel Tender (DT): $1,200
-
 ## Settings
 
 Accessible from the UMM mod menu in-game.
@@ -47,14 +42,14 @@ Accessible from the UMM mod menu in-game.
 
 ## MU Safety
 
-- Only cars with carType `DT` or `AUXT` are eligible as aux sources; vanilla rolling stock and third-party cars are never touched.
+- Only cars with carType `DT` or `AUXT` are eligible as aux sources — vanilla rolling stock and third-party cars are never touched.
 - A patch to `BaseLocomotive.FindSourceLocomotive` ensures MU control passes through aux cars transparently in a consist.
 
 ## Installation
 
 1. Install [Unity Mod Manager](https://www.nexusmods.com/site/mods/21) for Railroader if you haven't already.
 2. Download the latest release zip and install it via the UMM installer, or extract the `AuxiliaryFuelCars` folder into your `Mods` directory.
-3. Launch the game and the new cars appear in the car placer immediately. Vanilla model bundles are copied from your game files on first run.
+3. Launch the game — the new cars appear in the car placer immediately. Vanilla model bundles are copied from your game files on first run.
 
 ## Compatibility
 

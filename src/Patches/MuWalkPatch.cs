@@ -13,9 +13,10 @@ namespace ExtraTenders.Patches;
 /// Any other non-locomotive car breaks the walk: the method returns null
 /// and the trailing loco loses MU.
 ///
-/// This patch replaces FindSourceLocomotive with a copy that also skips
-/// our aux cars (DT diesel tank, AUXB steam tender) so the vanilla MU
-/// behaviour is preserved for DPC-free players.
+/// This patch replaces FindSourceLocomotive ONLY when one of our aux cars
+/// is present in the consist. For all other consists the original runs
+/// completely unmodified, preserving full compatibility with WaypointQueue
+/// and any other mod that patches the same method.
 /// </summary>
 [HarmonyPatch(typeof(BaseLocomotive), "FindSourceLocomotive")]
 internal static class MuWalkPatch
@@ -26,7 +27,6 @@ internal static class MuWalkPatch
         Car.LogicalEnd searchDirection,
         ref BaseLocomotive? __result)
     {
-        bool stop = false;
         int? idx = __instance.set.IndexOfCar(__instance);
         if (!idx.HasValue)
         {
@@ -34,6 +34,11 @@ internal static class MuWalkPatch
             return true;
         }
 
+        // If none of our aux cars are in this consist, let the original run.
+        if (!ConsistHasOurAuxCar(__instance, idx.Value))
+            return true;
+
+        bool stop = false;
         int carIndex = idx.Value;
 
         // The walk starts from the opposite end to the search direction,
@@ -77,4 +82,24 @@ internal static class MuWalkPatch
     // Both use Tank archetype so they are spawnable, but must not break the MU walk.
     private static bool IsOurAuxCar(Car car) =>
         car.CarType == "DT" || car.CarType == "AUXT";
+
+    // Returns true if any car in the consist (either direction) is one of ours.
+    private static bool ConsistHasOurAuxCar(BaseLocomotive loco, int startIndex)
+    {
+        foreach (var fromEnd in new[] { Car.LogicalEnd.A, Car.LogicalEnd.B })
+        {
+            int carIndex = startIndex;
+            bool stop = false;
+            Car car;
+            while ((car = loco.set.NextCarConnected(
+                        ref carIndex, fromEnd,
+                        IntegrationSet.EnumerationCondition.AirAndCoupled,
+                        out stop)) != null)
+            {
+                if (IsOurAuxCar(car)) return true;
+                if (stop) break;
+            }
+        }
+        return false;
+    }
 }
