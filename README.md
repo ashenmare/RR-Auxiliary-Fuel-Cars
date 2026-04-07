@@ -33,6 +33,7 @@ Reuses the USRA single-dome tank car (tankcar02) model. Couple it at either end 
 
 ## Cost
 Aux Tender (AUXT): $4,000
+
 Diesel Fuel Tender (DT): $1,200
 
 ## Settings
