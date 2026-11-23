@@ -1,11 +1,29 @@
 {
-  "Id": "AuxiliaryFuelCars",
-  "DisplayName": "Auxiliary Fuel Cars",
-  "Author": "ashenmare",
-  "Version": "1.0.2",
-  "ManagerVersion": "0.27.0",
-  "Game": "Railroader",
-  "AssemblyName": "Extra-Tenders.dll",
-  "EntryMethod": "ExtraTenders.Main.Load",
-  "Repository": "https://api.github.com/repos/ashenmare/RR-Auxiliary-Fuel-Cars/releases/latest"
+  "identifier": "ashenmare/aux-fuel-cars",
+  "version": "2.2.1",
+  "name": "Aux Fuel Cars and Remote MU",
+  "author": "ashenmare",
+  "scope": "unscoped",
+  "license": "MIT",
+  "assemblies": [
+    "AuxFuelCars.dll"
+  ],
+  "dependencies": {
+    "required": [
+      "rr/game >=0.6.3",
+      "rr/tm-tankcar01",
+      "rr/tm-tankcar02",
+      "rr/ls-462-p43",
+      "rr/car-styles"
+    ]
+  },
+  "load": {
+    "after": [
+      "tetz95/beta-main",
+      "tetz95/beta-yard",
+      "kater/sylvainterchange"
+    ],
+    "priority": 100
+  },
+  "description": "Three cars that carry extra fuel and water, built on the game's own bodies: an Auxiliary Water Car and an Auxiliary Diesel Car (tank cars) and an Extra Tender (P-43 tender, coal and water). Couple one behind a tender, behind a tank engine or against a diesel and it keeps the engine topped up; chain them for more range, and park one as a remote water tower. Each car has a Feed checkbox in its Operations tab. The diesel car takes waybills: buy diesel for it at an interchange and deliver it to the diesel stands. Other mods can declare their own cars as aux cars. Also: remote MU, so a helper engine anywhere in the train follows the lead (in multiplayer, the host's setting rules). Required: it adds cars, so every player in a game needs it, at the same version. Buy them in the Equipment window; fill them at towers, coaling docks and fuel stands."
 }
