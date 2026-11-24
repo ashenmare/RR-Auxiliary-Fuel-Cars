@@ -32,6 +32,11 @@ namespace AuxFuelCars
         // draws from the aux cars coupled to it (TopUp.cs). Off: only the unit touching an aux car draws, as before.
         // The host's value rules (only the host tops up).
         public bool lashUp = true;
+
+        // The shared debug log's switch (DebugLog.cs): this mod's copy of it, set by Main.StartDebug and the section's save.
+        // A value that isn't true or false is just off (From), never a reason to drop the other settings.
+        public bool debugLog = false;
+        internal const string KeyDebug = "debugLog";
     }
 
     internal static class Util
@@ -57,6 +62,12 @@ namespace AuxFuelCars
         internal static void Warn(string text)
         {
             try { Main.Log?.Warning(Plain(Main.LogTag + ": " + text)); } catch { }
+        }
+
+        // The play-by-play, for the shared debug log (callers test DebugLog.On); Player.log gets none of it.
+        internal static void Detail(string name, string text)
+        {
+            try { DebugLog.Event(Main.Id, name, "text", text); } catch { }
         }
 
         // Even the logger must not throw out of a postfix on the game's once-a-second update.
@@ -95,7 +106,9 @@ namespace AuxFuelCars
         internal const string Name = "Aux Fuel Cars and Remote MU";
         // The log prefix stays the old name: README.txt and the gates quote the log lines (2.1.4).
         internal const string LogTag = "Auxiliary Fuel Cars";
-        internal const string Version = "2.2.1";
+        internal const string Id = "aux-fuel-cars";   // the shared debug log's name for this mod
+        private static string _settingsPath;
+        internal const string Version = "2.3.0";
         private const string HarmonyId = "ashenmare.aux-fuel-cars";
         internal static IModLogger Log;
         // The helper air part went in at load (the feed reports it). A bool, so the feed can read it from anywhere.
@@ -122,6 +135,7 @@ namespace AuxFuelCars
                 Settings = new Settings();
                 Util.Warn("settings couldn't load, using the defaults (remote MU on): ", e);
             }
+            try { StartDebug(settingsPath); } catch (Exception) { }
             try
             {
                 _harmony = new Harmony(HarmonyId);
@@ -182,6 +196,13 @@ namespace AuxFuelCars
                 try { ClearOpenCars(); } catch (Exception) { }
                 Util.Warn("couldn't read other packs' aux-fuel-cars.json (only this mod's own cars feed): ", e);
             }
+            // 2.3.0: the once-a-second top-up for other packs' takers (non-engine cars), only when a pack declared one.
+            try { StartTakers(); }
+            catch (Exception e)
+            {
+                try { StopTakers(); } catch (Exception) { }
+                Util.Warn("the top-up for other packs' takers isn't available on this game version (they stay as they are): ", e);
+            }
             try { RegisterWorldUi(); }
             catch (Exception e) { Util.Warn("the Feed checkbox isn't available on this game version (aux cars always feed): ", e); }
             try { RegisterFreight(); }
@@ -192,10 +213,13 @@ namespace AuxFuelCars
                 try { DetachSetting(); } catch (Exception) { }
                 Util.Warn("couldn't share the Remote MU setting on this game version; each computer uses its own: ", e);
             }
+            // 2.2.2: the diesel filters Data.rl left, for the debug log (Data.rl can't reach the switch), on their own.
+            try { WriteWorld("load"); } catch (Exception) { }
         }
 
         public void OnWorldUnload()
         {
+            try { StopTakers(); } catch (Exception) { }
             try { UnregisterSetting(); } catch (Exception) { }
             try { ClearRemoteMu(); } catch (Exception) { }
             try { ResetPerWorld(); } catch (Exception) { }
@@ -207,6 +231,8 @@ namespace AuxFuelCars
         public void OnModUnload()
         {
             try { ModFeeds.Withdraw(Api.Feed); } catch (Exception) { }
+            try { StopTakers(); } catch (Exception) { }
+            try { DebugLog.Forget(Id); } catch (Exception) { }
             Harmony harmony = _harmony;
             _harmony = null;
             RearHooked = false;
@@ -257,7 +283,7 @@ namespace AuxFuelCars
                 if (first != null) first.AddAfterSelf(choice); else o.Add(choice);
                 File.WriteAllText(tmp, o.ToString(Formatting.Indented));
                 File.Move(tmp, path);
-                Util.Info("wrote settings.json with the defaults (remoteMu true)");
+                Util.Info("wrote settings.json with the defaults (remoteMu true)");   // the first-run file note
             }
             catch (Exception e)
             {
@@ -272,7 +298,14 @@ namespace AuxFuelCars
         // air choice by HelperAirSetting.Read (2.1.2).
         internal static Settings From(JObject o)
         {
-            Settings s = o.ToObject<Settings>() ?? new Settings();
+            // 1.9: a debugLog that isn't a true or false is just off; it never costs the other settings (the older keys keep the rule above).
+            JObject c = o;
+            if (o.TryGetValue(Settings.KeyDebug, StringComparison.OrdinalIgnoreCase, out JToken dbg) && dbg.Type != JTokenType.Boolean)
+            {
+                c = (JObject)o.DeepClone();
+                c.Remove(dbg.Parent is JProperty jp ? jp.Name : Settings.KeyDebug);
+            }
+            Settings s = c.ToObject<Settings>() ?? new Settings();
             s.helperAir = HelperAirSetting.Read(o, out _);
             return s;
         }
@@ -309,7 +342,16 @@ namespace AuxFuelCars
         // After a save in Preferences > Mods: the same read as at load, from the file just written.
         internal static void Applied(JObject saved)
         {
-            Settings = From(saved);
+            Settings s = From(saved);
+            // The row is this mod's copy of the shared switch: when the saved file has it and it differs from the switch, the player
+            // just changed it here; a file without the key says nothing about it.
+            try
+            {
+                if (!saved.TryGetValue(Settings.KeyDebug, StringComparison.OrdinalIgnoreCase, out _)) s.debugLog = DebugLog.On;
+                else if (s.debugLog != DebugLog.On) DebugLog.Set(s.debugLog);
+            }
+            catch (Exception) { }
+            Settings = s;
             try { PublishSetting(); }
             catch (Exception e) { Util.Warn("couldn't send the Remote MU setting to the other players: ", e); }
             bool everyone = false;
@@ -317,6 +359,45 @@ namespace AuxFuelCars
             Util.Info("settings saved, remote MU " + (Settings.remoteMu ? "on" : "off") + ", helper engines work the air: "
                 + HelperAirSetting.Name(Settings.helperAir) + ", lash-up feed " + (Settings.lashUp ? "on" : "off") + ", from the next MU check (within a second)"
                 + (everyone ? ", for everyone in this world" : ""));
+        }
+
+        // The shared debug log (DebugLog.cs). The switch itself is shared; the row in this mod's settings is a copy of it, so at load
+        // the copy is made to match, and whenever any mod changes the switch every loaded mod's copy follows.
+        private static void StartDebug(string settingsPath)
+        {
+            _settingsPath = settingsPath;
+            Version v = typeof(Main).Assembly.GetName().Version;
+            DebugLog.Init(Id, v == null ? "" : v.Major + "." + v.Minor + "." + v.Build);
+            if (Settings.debugLog != DebugLog.On) { Settings.debugLog = DebugLog.On; MirrorDebug(DebugLog.On); }
+            DebugLog.OnChanged(Id, on =>
+            {
+                Settings.debugLog = on;
+                MirrorDebug(on);
+                if (DebugLog.On && on) { LogSettings("debug-on"); try { WriteWorld("debug-on"); } catch (Exception) { } }
+            });
+            if (DebugLog.On) LogSettings("load");
+        }
+
+        // The settings in force, for the debug log's first lines (callers test DebugLog.On).
+        internal static void LogSettings(string name) =>
+            DebugLog.Event(Id, name, "remoteMu", Settings.remoteMu, "helperAir", HelperAirSetting.Name(Settings.helperAir), "lashUp", Settings.lashUp);
+
+        // Writes the switch into this mod's settings.json when the file's own value differs, keeping every other key. A file
+        // that can't be read is left alone.
+        private static void MirrorDebug(bool on)
+        {
+            try
+            {
+                if (_settingsPath == null || !File.Exists(_settingsPath)) return;
+                JObject o = JObject.Parse(File.ReadAllText(_settingsPath));
+                if (o.TryGetValue(Settings.KeyDebug, StringComparison.OrdinalIgnoreCase, out JToken t) && t.Type == JTokenType.Boolean && (bool)t == on) return;
+                o[Settings.KeyDebug] = on;
+                string tmp = _settingsPath + ".tmp";
+                File.WriteAllText(tmp, o.ToString(Formatting.Indented));
+                File.Delete(_settingsPath);
+                File.Move(tmp, _settingsPath);
+            }
+            catch (Exception e) { Util.Warn("couldn't update the debug log row in settings.json: ", e); }
         }
 
         // One patch class, on its own: a missing hook (or a class that won't load) stands only that part down.
@@ -346,8 +427,12 @@ namespace AuxFuelCars
                 { "helperAir", "the Helper engines work the air setting in force in this world (the host's in multiplayer): off, byHand or always" },
                 { "lashUp", "the Lash-up feed setting in force in this world (the host's in multiplayer)" },
                 { "openCars", "other packs' cars declared as aux cars (aux-fuel-cars.json), by definition id: pack, loads (null: every load it has a slot for)" },
+                { "openTakers", "other packs' cars declared as takers (cars that take fuel and water from coupled aux cars without being engines), by definition id: pack, loads" },
+                { "openEngineTanks", "other packs' engine tanks (a tank kept on a diesel's own keys that aux cars fill), in load order: pack, load, levelKey, capacityKey" },
+                { "engineTanks", "each engine seen with such a tank, by car id: drew (what it has drawn into the tank since the world loaded, by water, coal or diesel), drawing (it drew in the last 2.5 s)" },
+                { "takers", "each taker car by car id: loads (quantity, capacity, units), drew (what it has drawn since the world loaded, by water, coal or diesel), drawing (it drew in the last 2.5 s)" },
                 { "rearAirHooked", "the helper air part went in when the mod loaded" },
-                { "auxCars", "each aux car by car id: kind (water, diesel, tender, or declared for another pack's car), feedOn, loads (quantity, capacity, units: gal, lb, or units for any other), feeds (the engines it fed in the last 2.5 s, by car id), feeding" },
+                { "auxCars", "each aux car by car id: kind (water, diesel, tender, or declared for another pack's car), feedOn, loads (quantity, capacity, units: gal, lb, or units for any other), feeds (the engines it fed in the last 2.5 s, by car id), feeding, feedsTakers (the taker cars it fed, by car id), feedingTakers" },
                 { "helpers", "each Remote MU helper by car id: leadId, position (rear or mid), workingAir (it works the brake pipe now)" },
                 { "fuelSpeeds", "Faster Fueling's refuel speeds as followed now: following (its feed says it is active), and the multiple of the game's speed for coal, water and diesel (1 when not followed)" },
             };
@@ -370,9 +455,12 @@ namespace AuxFuelCars
         [MethodImpl(MethodImplOptions.NoInlining)] private static void UnregisterSetting() => HostSetting.Unregister();
         [MethodImpl(MethodImplOptions.NoInlining)] private static void ClearRemoteMu() => RemoteMuPatch.Clear();
         // Every per-world latch and record (statics survive a mod-set change): the rear air stand-down, the feed's log.
-        [MethodImpl(MethodImplOptions.NoInlining)] private static void ResetPerWorld() { FasterFueling.Reset(); RearAirPatch.Reset(); FeedLog.Clear(); Api.Reset(); OpenCars.Clear(); }
+        [MethodImpl(MethodImplOptions.NoInlining)] private static void ResetPerWorld() { FasterFueling.Reset(); SteamTopUpPatch.ClearOil(); RearAirPatch.Reset(); FeedLog.Clear(); Api.Reset(); OpenCars.Clear(); OpenTakers.Clear(); OpenEngineTanks.Clear(); }
+        [MethodImpl(MethodImplOptions.NoInlining)] private static void WriteWorld(string reason) => WorldDetail.EmitRows(reason);
         [MethodImpl(MethodImplOptions.NoInlining)] private static void LoadOpenCars() => OpenCarsLoader.Load();
-        [MethodImpl(MethodImplOptions.NoInlining)] private static void ClearOpenCars() => OpenCars.Clear();
+        [MethodImpl(MethodImplOptions.NoInlining)] private static void ClearOpenCars() { OpenCars.Clear(); OpenTakers.Clear(); OpenEngineTanks.Clear(); }
+        [MethodImpl(MethodImplOptions.NoInlining)] private static void StartTakers() => TakerDriver.Start();
+        [MethodImpl(MethodImplOptions.NoInlining)] private static void StopTakers() => TakerDriver.Stop();
 
         // OnWorldLoad: the world-level Remote MU setting, and which computer's value rules.
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -380,7 +468,7 @@ namespace AuxFuelCars
         {
             HostSetting.Register();
             bool? world = HostSetting.WorldValue;
-            Util.Info(HostSetting.IsClient
+            if (DebugLog.On) Util.Detail("world", HostSetting.IsClient
                 ? "Remote MU follows the host: " + (world.HasValue ? (world.Value ? "on" : "off") : "not heard yet, this computer's setting until it is")
                 : "Remote MU " + (Settings.remoteMu ? "on" : "off") + " for this world (this computer hosts, so its setting rules)");
         }
@@ -411,7 +499,7 @@ namespace AuxFuelCars
             if (library == null) return;
             var have = new HashSet<string>(library.AllCarDefinitionInfos.Select(i => i.Identifier));
             var missing = Ids.All.Where(id => !have.Contains(id)).OrderBy(id => id, StringComparer.Ordinal).ToList();
-            if (missing.Count == 0) Util.Info("the three aux cars are defined (water car, diesel car, extra tender)");
+            if (missing.Count == 0) { if (DebugLog.On) Util.Detail("cars-defined", "the three aux cars are defined (water car, diesel car, extra tender)"); }
             else Util.Warn("not defined in this world: " + string.Join(", ", missing)
                 + " (Scripts/Data.rl didn't make them; look for \"aux-fuel-cars/Data.rl\" errors in Player.log)");
         }
@@ -452,7 +540,7 @@ namespace AuxFuelCars
         {
             List<string> prefixes = CarType.FreightCarTypePrefixes;
             if (!prefixes.Contains(Ids.DieselCarType)) prefixes.Add(Ids.DieselCarType);
-            Util.Info("the aux diesel car (" + Ids.DieselCarType + ") takes waybills: interchange diesel, and diesel stands to unload");
+            if (DebugLog.On) Util.Detail("freight-registered", "the aux diesel car (" + Ids.DieselCarType + ") takes waybills: interchange diesel, and diesel stands to unload");
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -478,6 +566,8 @@ namespace AuxFuelCars
                     "By hand only: not while the Auto Engineer drives."),
                 SettingField.Bool("lashUp", "Lash-up feed", true, true,
                     "Diesel units coupled together all draw from the aux cars."),
+                SettingField.Bool(Settings.KeyDebug, "Debug log (for bug reports)", false, true,
+                    "Writes Documents/Railroader/Logs; send the file with a bug report."),
             };
             _section = new SettingsSection(Main.Name, settingsPath, fields, Main.Applied,
                 m => Util.Warn(m),

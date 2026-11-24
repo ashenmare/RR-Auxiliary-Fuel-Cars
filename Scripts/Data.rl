@@ -1,4 +1,4 @@
-// Aux Fuel Cars and Remote MU 2.2.1: the three cars, cloned from the game's own definitions with modifyAs, and (modifyMap, at
+// Aux Fuel Cars and Remote MU 2.3.0: the three cars, cloned from the game's own definitions with modifyAs, and (modifyMap, at
 // the end) diesel by waybill for the Auxiliary Diesel Car at the interchanges and the diesel stands. No bundles and no
 // model edits: a clone is filed under the pack that owns its base, so "./tankcar01", "./tankcar02" and
 // "./lt-462-p43a" resolve to the stock models (AssetPackManager.LoadDefinitions, 0.6.2). Info.json requires the three
@@ -57,7 +57,6 @@ func modifyDefinitions(context) {
         obj["definition"]["loadSlots"] = [{ "maximumCapacity": 10000.0, "loadUnits": "Gallons", "requiredLoadIdentifier": "rr/water" }]
         obj["definition"]["components"]["auxfuel-loadtarget"] = tankTarget()
     })
-    log.info("[aux-fuel-cars] \(waterId) cloned from rr/tm-tankcar01: AXW, 10000 gal rr/water, the tank car's own price")
 
     // Auxiliary Diesel Car: the USRA 8,000 gal tank car (rr/tm-tankcar02), its one slot locked to diesel.
     context.modifyAs("rr/tm-tankcar02", dieselId, (obj) => {
@@ -68,7 +67,6 @@ func modifyDefinitions(context) {
         obj["definition"]["loadSlots"] = [{ "maximumCapacity": 8000.0, "loadUnits": "Gallons", "requiredLoadIdentifier": "rr/diesel-fuel" }]
         obj["definition"]["components"]["auxfuel-loadtarget"] = tankTarget()
     })
-    log.info("[aux-fuel-cars] \(dieselId) cloned from rr/tm-tankcar02: AXD, 8000 gal rr/diesel-fuel, the tank car's own price")
 
     // Extra Tender: the P-43 tender (rr/lt-462-p43) as an ordinary car. Its slots (coal 30,000 lb, water 9,000 gal),
     // load targets and coal/water animations are kept as they are. A tender's price is worked out from its capacity
@@ -80,7 +78,6 @@ func modifyDefinitions(context) {
         obj["definition"]["basePrice"] = 5000
         obj["definition"]["builderPhoto"] = "rr/ls-462-p43--lt-462-p43"
     })
-    log.info("[aux-fuel-cars] \(tenderId) cloned from rr/lt-462-p43: AXT, 30000 lb rr/coal + 9000 gal rr/water, $5000")
 
     // Paint schemes (2.0.4: the aux diesel car wasn't color customizable). The Customize window offers paint
     // and colors only when a CarStyle applies to the car, by carTypeFilter or by naming it in carIdentifiers
@@ -96,7 +93,6 @@ func modifyDefinitions(context) {
             obj["definition"]["carIdentifiers"] = ids
         })
     }
-    log.info("[aux-fuel-cars] paint schemes: Tank Car Black and Silver for the water and diesel cars, ALW Steam Standard for the Extra Tender")
 }
 
 // 2.0.5: diesel by waybill for the Auxiliary Diesel Car (as the 1.x cars took interchange waybills; and waybilled to
@@ -117,7 +113,7 @@ func modifyDefinitions(context) {
 // is checked to have orderLoads and orderAwayEmpties false (the code's defaults are true, so a missing key is skipped).
 // The menu also needs the car to be a freight car type (CarInspector shows the waybill panel only then): the DLL adds
 // exactly "AXD" to the game's freight car type prefixes at each world load (src/Main.cs, FreightType).
-// map.modify as Weed Sprayer and Flat Loads: has() guards, writes through the full path, a line per change.
+// map.modify as Weed Sprayer and Flat Loads: has() guards, writes through the full path, no per-change lines (Player.log gets one summary and the warnings, HOUSE 1.9).
 let axd = "AXD"
 let dieselLoad = "rr/diesel-fuel"
 // What an un-authored diesel component inherits (rr/diesel-fuel's own filter), plus the aux diesel car.
@@ -190,12 +186,11 @@ func modifyMap(map) {
                     if pass == 0 { loaderSeen = loaderSeen + 1 } else { standSeen = standSeen + 1 }
                     var f = filterOf(c)
                     if hasAxd(f) {
-                        log.info("[aux-fuel-cars] \(at) car types already include AXD (\(f))")
+                        if pass == 0 { loaders = loaders + 1 } else { stands = stands + 1 }
                         continue
                     }
                     var wanted = withAxd(f)
                     data["ops"]["areas"][aid]["industries"][iid]["components"][cid]["carTypeFilter"] = wanted
-                    log.info("[aux-fuel-cars] \(at) car types: \(f == "" ? "TM (from rr/diesel-fuel)" : f) -> \(wanted)")
                     if pass == 0 { loaders = loaders + 1 } else { stands = stands + 1 }
                 }
             }
@@ -203,6 +198,7 @@ func modifyMap(map) {
         if loaderSeen == 0 {
             log.warning("[aux-fuel-cars] this map has no interchange diesel loader; the aux diesel car can't buy diesel here")
         }
+        // The one line this script writes at startup (HOUSE 1.9); warnings above stay.
         log.info("[aux-fuel-cars] map: the aux diesel car (AXD) at \(loaders) of \(loaderSeen) interchange diesel loaders and \(stands) of \(standSeen) diesel stands")
     })
 }

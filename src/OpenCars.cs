@@ -44,6 +44,14 @@ namespace AuxFuelCars
 
         internal static bool Has(string id) => id != null && _cars.ContainsKey(id);
 
+        // 2.3.0: the declared takers' definition ids (OpenTakers.Set keeps it; empty in the embedded build, which has no takers).
+        // Here, not in OpenTakers, because TopUp.cs (shared with the embedded build) asks it when it walks a lash-up.
+        private static volatile HashSet<string> _takerIds = new HashSet<string>(StringComparer.Ordinal);
+
+        internal static void SetTakerIds(HashSet<string> ids) => _takerIds = ids ?? new HashSet<string>(StringComparer.Ordinal);
+
+        internal static bool IsTaker(string defId) => defId != null && _takerIds.Count > 0 && _takerIds.Contains(defId);
+
         // A car of this definition gives this load to an engine: one of the mod's own three (for any load it has a slot
         // for), or a declared car whose loads allow it.
         internal static bool Gives(string defId, string loadId)
@@ -88,6 +96,8 @@ namespace AuxFuelCars
             if (v < 1) { log.Add(Where(pack) + "has format " + v + ", which isn't one; skipped"); return entries; }
             if (!(root["cars"] is JArray cars))
             {
+                // 2.3.0: a file that declares only takers (OpenTakers) or engine tanks (OpenEngineTanks) needs no cars list.
+                if (HostSetting.FullMod && (root["takers"] != null || root["engineTanks"] != null)) return entries;
                 log.Add(Where(pack) + "has no \"cars\" list; skipped");
                 return entries;
             }

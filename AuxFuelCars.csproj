@@ -7,7 +7,7 @@
     <RootNamespace>AuxFuelCars</RootNamespace>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Version>2.2.1</Version>
+    <Version>2.3.0</Version>
     <DebugType>none</DebugType>
     <PathMap>$(MSBuildProjectDirectory)=/_/</PathMap>
     <Nullable>disable</Nullable>

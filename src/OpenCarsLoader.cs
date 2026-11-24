@@ -19,9 +19,20 @@ namespace AuxFuelCars
         internal static void Load()
         {
             var into = new Dictionary<string, OpenCars.Entry>(StringComparer.Ordinal);
+            var takers = new Dictionary<string, OpenTakers.Entry>(StringComparer.Ordinal);
             var log = new List<string>();
             AssetPackManager apm = AssetPackManager.Shared;
             IReadOnlyList<AssetPackManager.PackEntry> packs = apm?.OrderedPacks;
+            OpenCars.Lookup lookup = (string defId, out bool engine) =>
+            {
+                engine = false;
+                if (!apm.TryGetDefinitionInfo(defId, out TypedContainerItem<CarDefinition> info) || info?.Definition == null) return null;
+                engine = info.Definition is LocomotiveDefinition;
+                return SlotLoads(info.Definition);
+            };
+            // The files found, in load order: the aux cars of every pack first, then the takers (2.3.0), so a car one pack
+            // declares as a taker and another as an aux car is known as an aux car whichever loads first.
+            var files = new List<KeyValuePair<string, string>>();
             if (packs != null)
                 foreach (AssetPackManager.PackEntry pack in packs)
                 {
@@ -30,15 +41,15 @@ namespace AuxFuelCars
                     string id = pack.Store.Identifier ?? "a pack";   // the pack's Info.json identifier (AssetPackManager makes each store with it)
                     string text = Read(Path.Combine(dir, OpenCars.FileName), id, log);
                     if (text == null) continue;
+                    files.Add(new KeyValuePair<string, string>(id, text));
                     // Each file on its own; one that throws is skipped with one line naming its pack.
-                    OpenCars.ReadPack(text, id, (string defId, out bool engine) =>
-                    {
-                        engine = false;
-                        if (!apm.TryGetDefinitionInfo(defId, out TypedContainerItem<CarDefinition> info) || info?.Definition == null) return null;
-                        engine = info.Definition is LocomotiveDefinition;
-                        return SlotLoads(info.Definition);
-                    }, into, log);
+                    OpenCars.ReadPack(text, id, lookup, into, log);
                 }
+            foreach (KeyValuePair<string, string> f in files) OpenTakers.ReadPack(f.Value, f.Key, lookup, into, takers, log);
+            OpenTakers.Set(takers);
+            var tanks = new List<OpenEngineTanks.Entry>();
+            foreach (KeyValuePair<string, string> f in files) OpenEngineTanks.ReadPack(f.Value, f.Key, tanks, log);
+            OpenEngineTanks.Set(tanks);
             OpenCars.Set(into);
             foreach (string line in log) Util.Warn(line);
             if (into.Count > 0)
@@ -46,7 +57,20 @@ namespace AuxFuelCars
                 var names = new List<string>();
                 foreach (OpenCars.Entry d in into.Values) names.Add(d.Id + " (" + d.Pack + ")");
                 names.Sort(StringComparer.Ordinal);
-                Util.Info("other packs' aux cars: " + string.Join(", ", names));
+                if (DebugLog.On) Util.Detail("other-packs-cars", "other packs' aux cars: " + string.Join(", ", names));
+            }
+            if (tanks.Count > 0)
+            {
+                var names = new List<string>();
+                foreach (OpenEngineTanks.Entry d in tanks) names.Add(d.Load + " (" + d.Pack + ": " + d.LevelKey + " of " + d.CapacityKey + ")");
+                if (DebugLog.On) Util.Detail("other-packs-engine-tanks", "other packs' engine tanks: " + string.Join(", ", names));
+            }
+            if (takers.Count > 0)
+            {
+                var names = new List<string>();
+                foreach (OpenTakers.Entry d in takers.Values) names.Add(d.Id + " (" + d.Pack + ": " + string.Join("+", d.Loads) + ")");
+                names.Sort(StringComparer.Ordinal);
+                if (DebugLog.On) Util.Detail("other-packs-takers", "other packs' takers: " + string.Join(", ", names));
             }
         }
 

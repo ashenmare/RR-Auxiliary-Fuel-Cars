@@ -2,7 +2,7 @@
 
 **Nexus Mods** https://www.nexusmods.com/railroader/mods/475
 
-This is the source of Aux Fuel Cars and Remote MU 2.2.1. The ready-made zip is on the Nexus page.
+This is the source of Aux Fuel Cars and Remote MU 2.3.0. The ready-made zip is on the Nexus page.
 
 More range for your engines: cars that carry extra fuel and water and keep the engine topped up. Plus remote MU:
 a helper engine anywhere in the train follows the lead.
@@ -62,9 +62,11 @@ the truth: the tender reads full until the aux cars run dry.
 - Diesel lash-ups (new in 2.1.0, the Lash-up feed setting, on by default): diesel units coupled together pass the
   feed along, so every unit is topped up: loco - loco - aux tops up both locos, and in loco - aux - loco - aux the
   first loco reaches past the second. Only diesel units pass it: a boxcar, caboose, coach or steam engine between
-  them still ends the chain. Lash-up feed off: only the unit coupled to an aux car is topped up, as before 2.1.0.
-- Other packs' cars can be aux cars too (see OTHER PACKS' CARS).
-- Steam takes coal and water, diesels take diesel. A diesel car in a steam chain ends it, and the other way round.
+  them still ends the chain. From 2.3.0 a diesel's chain also steps over an aux car that gives it nothing, such as a
+  water car: loco - water car - diesel car tops up the loco. Lash-up feed off: only the unit coupled to an aux car is
+  topped up, as before 2.1.0, and a car that gives it nothing ends the chain.
+- Other packs' cars can be aux cars too (see OTHER PACKS' CARS), and cars that need fuel or water without being engines can take from them (see CARS THAT TAKE).
+- Steam takes coal and water (an oil-fired steam engine, one whose tender holds diesel and no coal, takes diesel and water), diesels take diesel. A diesel car in a steam chain ends it, and the other way round.
 - The Extra Tender is an extra: an engine built for a tender still needs its own tender, with the aux cars behind it.
 
 ## The feed checkbox
@@ -85,12 +87,49 @@ mod folder (beside its Info.json):
 - "auxFuelCars": the file's format, 1. A file with a higher number is for a newer version of this mod: it is skipped.
 Those cars then work exactly like this mod's: the chain, farthest car first, the Feed checkbox, the remote water
 tower, lash-ups. A car with water and diesel feeds both a steam engine's tender and a diesel; a car limited to
-water ends a diesel's chain, as this mod's water car does. The files are read when a save loads, only from mods
+water ends a diesel's chain when Lash-up feed is off, as this mod's water car does (with it on, the chain steps over it). The files are read when a save loads, only from mods
 that are turned on; nothing in them is run. A file or a car that can't be used (not valid JSON, no id, a car that
 isn't defined, an engine, a load it has no slot for) gets one line in Player.log, starting
 "aux-fuel-cars.json in <mod>:", and is skipped; the rest still load. A car declared by two mods is taken from the
 first one loaded. Declare only cars meant to be drawn from: a declared car that is also some engine's own tender
 gives to any other engine coupled to it. Other mods can read the declared cars in the data feed (openCars).
+
+CARS THAT TAKE (new in 2.3.0)
+A car that is not an engine but needs fuel or water, such as a heater car, can be declared by its own mod as a taker, in
+the same aux-fuel-cars.json, in a "takers" list:
+  { "auxFuelCars": 1, "cars": [], "takers": [ { "id": "somemod/heater-car", "loads": ["diesel-fuel", "water"], "capacity": "slot" } ] }
+- "id": the car's definition identifier. Never an engine (engines are topped up as before) and never a car the same or
+  another mod declares as an aux car: a car gives or takes.
+- "loads" (optional): the loads it takes. Left out, every load it has a slot for that has a refill speed (water, coal,
+  diesel-fuel). Names as for aux cars.
+- "capacity" (optional): "slot", the default and the only choice. It takes up to the room in its own slot for that load.
+- Keep "cars": [] in a file with no aux cars: older versions of this mod want the list and log one line without it.
+
+A taker is topped up like an engine: aux cars coupled to either end of it fill it, farthest car first, at the same
+speeds (water 40 gal, coal 127 lb, diesel 3 gal a second, times Faster Fueling's if installed), only from cars that
+give that load and have their Feed box on. Under the Lash-up feed setting (on by default) a taker counts as a diesel
+unit: a diesel's chain passes over takers (diesel - heater - aux feeds the diesel too, and diesel - diesel - heater -
+heater - aux feeds all four), and a taker's chain passes over other takers and over diesel units, as a diesel's does
+(heater - heater - aux fills both heaters; heater - diesel - aux fills the heater through the diesel; a water car
+reached this way fills the heater's water). A car that is no aux car still ends the walk. A steam engine's chain has no lash-up, so it still ends at a taker: steam loco - tender - heater - aux does
+not feed the engine. With Lash-up feed off: a taker needs an aux car coupled beside it, and an engine's chain ends at a
+taker. It runs once a second, only for the
+host, and only when a loaded mod declares a taker; with none, this mod does no extra work. Problems in the file get
+one Player.log line each ("aux-fuel-cars.json in <mod>:") and that entry is skipped. The data feed lists them
+(openTakers, takers, and feedsTakers on each aux car).
+
+ENGINE TANKS (new in 2.3.0)
+A mod can also keep a tank on a diesel engine itself (for example the water of a steam generator) and let aux cars fill it. It says so in the same
+file, in an "engineTanks" list:
+  "engineTanks": [ { "load": "water", "levelKey": "somemod.tank-level", "capacityKey": "somemod.tank-capacity" } ]
+- "load": the load the tank takes (water, coal or diesel-fuel; names as above).
+- "capacityKey" and "levelKey": keys on the engine's own data, both plain numbers in the load's units (gallons for water and diesel,
+  pounds for coal). A key is up to 64 characters of letters, digits, dot, underscore and hyphen; anything else skips the entry with one line.
+  A capacity of 0 or none: the engine has no tank. No level: the tank is full, nothing is drawn and nothing is written.
+A diesel with room in such a tank draws from the aux cars of its own chain, farthest car first, at the same speeds, only from cars that give that load and
+have their Feed box on, under the same Lash-up feed rules as its fuel, and the host raises the level, never above the capacity. Only the host writes.
+With none declared this mod does no extra work. A bad entry gets one Player.log line ("aux-fuel-cars.json in <mod>:") and is skipped. The data feed lists them
+(openEngineTanks, engineTanks).
 
 ## Remote water tower
 Park a full aux car on a siding. Any engine whose tender (or tank engine rear, or diesel) couples to it fills from
@@ -167,6 +206,7 @@ In game: Preferences > Mods > Aux Fuel Cars and Remote MU (from the main menu or
   only and one that was off stays Off; settings.json gets the new value once and keeps the old one, unread.
 - Lash-up feed, default on. Off: in a diesel lash-up only the unit coupled to an aux car is topped up. Only the
   host tops up, so in multiplayer only the host's value acts.
+- Debug log (for bug reports), default off: writes the details described under SEEING IT WORK. One switch for every mod of ours that has it, on this computer only.
 - In multiplayer the host's settings rule: the host's choices go to every player (and to anyone who joins later),
   so everyone's helpers and brake gauges agree. On a player who joined, the section shows the host's setting and
   can't be changed; their own setting applies when they host or play alone.
@@ -225,22 +265,20 @@ folders it wrote to the game's AssetPacks folder in AppData\LocalLow) are not re
 them by hand. This version makes its cars from the game's own definitions instead.
 
 ## Seeing it work
-Player.log, at startup (the log lines still start with the old name, Auxiliary Fuel Cars):
-  [aux-fuel-cars] ashenmare/aux-water-car cloned from rr/tm-tankcar01: AXW, 10000 gal rr/water, the tank car's own price
-  (and one line each for the diesel car and the extra tender)
-  Auxiliary Fuel Cars: 2.1.0 loaded: steam top-up on, diesel top-up on, remote MU on, helper engines' air on (Remote
+Player.log, at startup, has one line from the mod's data script (the map line with the interchanges and diesel stands, and a
+warning if a map has none) and one line from the program (the log lines still start with the old
+name, Auxiliary Fuel Cars):
+  Auxiliary Fuel Cars: 2.3.0 loaded: steam top-up on, diesel top-up on, remote MU on, helper engines' air on (Remote
   MU setting: on, helper engines work the air: on, lash-up feed: on)
-and on loading a save:
-  [aux-fuel-cars] map: the aux diesel car (AXD) at 4 of 4 interchange diesel loaders and 5 of 5 diesel stands
-  (when other mods declare cars, one line listing each with its mod: "Auxiliary Fuel Cars: other packs' aux cars: ...")
-  Auxiliary Fuel Cars: the three aux cars are defined (water car, diesel car, extra tender)
-  Auxiliary Fuel Cars: the aux diesel car (AXD) takes waybills: interchange diesel, and diesel stands to unload
-  Auxiliary Fuel Cars: Remote MU on for this world (this computer hosts, so its setting rules)
-  (on a player who joined: "Remote MU follows the host: on")
+Saving the settings adds one "settings saved" line. Nothing else from the mod while you play: warnings and errors only.
+The details (the world's Remote MU setting at each load, the aux cars defined, other packs' cars, an engine that lost its
+lead and went to idle, and the car types each interchange diesel loader and diesel stand ended up with) are in the debug log: Preferences > Mods > Aux Fuel Cars and Remote MU > "Debug log (for bug
+reports)" writes Documents\Railroader\Logs\ashenmare-debug-<date>-<time>.log, one file shared by every mod of ours that
+has the switch. Send that file with a bug report.
 
 ## For other mods
 A read-only data feed, "aux-fuel-cars", listed with Mod Feeds: each aux car (what it holds, which engine it feeds) and
-each remote helper (its lead, rear or mid, whether it works the air now), and other packs' declared cars. FEEDS.md in
+each remote helper (its lead, rear or mid, whether it works the air now), other packs' declared cars, and the cars that take from aux cars (what each has drawn). FEEDS.md in
 this folder has the keys.
 
 ## If the game changes
@@ -251,6 +289,14 @@ still fill and move; MU stays the game's own. A map with no interchange diesel l
 has fewer places to go.
 
 ## Changes
+2.3.0: Added engine tanks: another mod can declare a tank kept on a diesel's own data (a steam generator's water) for aux cars to fill (ENGINE TANKS).
+  Added takers: another mod's cars that are not engines but need fuel or water (a steam heater car) take it from coupled aux cars (CARS THAT TAKE).
+  Changed Lash-up feed (on by default): a diesel's chain now steps over an aux car that gives it nothing, such as a water car, so a loco followed
+  by a water car and a diesel car fills the loco. This changes feeding for everyone with this mod alone. With the setting off the chain ends at
+  such a car as before.
+  2.2.2 and 2.2.3 below were not posted on their own and ship in 2.3.0.
+2.2.3: Fixed: an oil-fired steam engine (Oil Conversion) now takes diesel from an Auxiliary Diesel Car behind its tender.
+2.2.2: Fixed extra lines in Player.log. Nothing during play and one data script line at startup; the debug log has the details.
 2.2.1: For Railroader 0.6.3: the paint schemes for the three cars work again.
 2.2.0: Follows Faster Fueling's refuel speeds when it is installed. Updated settings menu (searchable).
 2.1.5: Finds the interchange diesel loaders and the diesel stands by rule instead of by name, so an interchange

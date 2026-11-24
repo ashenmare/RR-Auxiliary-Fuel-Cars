@@ -19,6 +19,8 @@ namespace AuxFuelCars
         {
             var aux = new Dictionary<string, object>();
             var helpers = new Dictionary<string, object>();
+            var takers = new Dictionary<string, object>();   // 2.3.0
+            var tanks = new Dictionary<string, object>();    // 2.3.0
             bool remoteOn = HostSetting.RemoteMu, hooked = Main.RearHooked;
             HelperAir air = HostSetting.HelperAir;
             TrainController tc = TrainController.Shared;
@@ -27,7 +29,17 @@ namespace AuxFuelCars
                 foreach (Car car in tc.Cars)
                 {
                     string def = car?.DefinitionInfo?.Identifier;
-                    if (def == null || !(Ids.All.Contains(def) || OpenCars.Has(def)) || car.id == null) continue;
+                    if (def == null || car.id == null) continue;
+                    if (OpenEngineTanks.Count > 0 && car is BaseLocomotive)
+                    {
+                        Dictionary<string, object> tank = EngineTank(car.id);
+                        if (tank != null) tanks[car.id] = tank;
+                    }
+                    if (!(Ids.All.Contains(def) || OpenCars.Has(def)))
+                    {
+                        if (OpenTakers.TryGet(def, out OpenTakers.Entry taker)) takers[car.id] = Taker(car, taker);
+                        continue;
+                    }
                     aux[car.id] = AuxCar(car, def);
                 }
                 foreach (KeyValuePair<string, RemoteMuPatch.Link> link in RemoteMuPatch.Links())
@@ -48,8 +60,12 @@ namespace AuxFuelCars
                 { "rearAirHooked", hooked },
                 { "lashUp", HostSetting.LashUp },
                 { "openCars", Declared() },
+                { "openTakers", DeclaredTakers() },
+                { "openEngineTanks", DeclaredTanks() },
                 { "fuelSpeeds", Speeds() },
                 { "auxCars", aux },
+                { "takers", takers },
+                { "engineTanks", tanks },
                 { "helpers", helpers },
             };
         }
@@ -90,6 +106,24 @@ namespace AuxFuelCars
 
         private static Dictionary<string, object> AuxCar(Car car, string def)
         {
+            Dictionary<string, object> loads = LoadsOf(car);
+            List<object> feeds = FeedLog.Feeds(car.id, out bool feeding);
+            List<object> feedsTakers = FeedLog.FeedsTakers(car.id, out bool feedingTakers);
+            return new Dictionary<string, object>
+            {
+                { "kind", def == Ids.WaterCar ? "water" : def == Ids.DieselCar ? "diesel" : def == Ids.ExtraTender ? "tender" : "declared" },
+                { "feedOn", Feed.IsOn(car) },
+                { "loads", loads },
+                { "feeds", feeds },
+                { "feeding", feeding },
+                { "feedsTakers", feedsTakers },
+                { "feedingTakers", feedingTakers },
+            };
+        }
+
+        // Each load the car has a slot for that the feed names: what it holds, its capacity, the units.
+        private static Dictionary<string, object> LoadsOf(Car car)
+        {
             var loads = new Dictionary<string, object>();
             var slots = car.Definition?.LoadSlots;
             if (slots != null)
@@ -107,14 +141,63 @@ namespace AuxFuelCars
                         { "units", Units(slot.LoadUnits) },
                     };
                 }
-            List<object> feeds = FeedLog.Feeds(car.id, out bool feeding);
+            return loads;
+        }
+
+        // 2.3.0: another pack's declared takers (OpenTakers), by definition id.
+        private static Dictionary<string, object> DeclaredTakers()
+        {
+            var all = new Dictionary<string, object>();
+            foreach (KeyValuePair<string, OpenTakers.Entry> kv in OpenTakers.Takers)
+            {
+                var ids = new List<object>();
+                foreach (string l in kv.Value.Loads) ids.Add(l);
+                all[kv.Key] = new Dictionary<string, object> { { "pack", kv.Value.Pack }, { "loads", ids } };
+            }
+            return all;
+        }
+
+        // 2.3.0: other packs' engine tanks (OpenEngineTanks), in load order.
+        private static List<object> DeclaredTanks()
+        {
+            var all = new List<object>();
+            foreach (OpenEngineTanks.Entry e in OpenEngineTanks.All)
+                all.Add(new Dictionary<string, object> { { "pack", e.Pack }, { "load", e.Load }, { "levelKey", e.LevelKey }, { "capacityKey", e.CapacityKey } });
+            return all;
+        }
+
+        // 2.3.0: one engine with a tank on its keys: what it has drawn into the tank since this world loaded, by load name, and whether it drew in the last 2.5 seconds.
+        private static Dictionary<string, object> EngineTank(string id)
+        {
+            if (!FeedLog.TankKnown(id)) return null;   // most engines have no tank: build nothing for them
+            var drew = new Dictionary<string, object>();
+            var rows = new List<KeyValuePair<string, float>>();
+            if (!FeedLog.TankDrawn(id, rows, out bool drawing)) return null;
+            foreach (KeyValuePair<string, float> kv in rows)
+            {
+                string name = LoadName(kv.Key);
+                if (name != null) drew[name] = Finite(kv.Value);
+            }
+            return new Dictionary<string, object> { { "drew", drew }, { "drawing", drawing } };
+        }
+
+        // 2.3.0: one taker car: its loads, what it has drawn from aux cars since this world loaded (total by load, in the
+        // loads' units) and whether it drew in the last 2.5 seconds.
+        private static Dictionary<string, object> Taker(Car car, OpenTakers.Entry e)
+        {
+            var drew = new Dictionary<string, object>();
+            var rows = new List<KeyValuePair<string, float>>();
+            FeedLog.TakerDrawn(car.id, rows, out bool drawing);
+            foreach (KeyValuePair<string, float> kv in rows)
+            {
+                string name = LoadName(kv.Key);
+                if (name != null) drew[name] = Finite(kv.Value);
+            }
             return new Dictionary<string, object>
             {
-                { "kind", def == Ids.WaterCar ? "water" : def == Ids.DieselCar ? "diesel" : def == Ids.ExtraTender ? "tender" : "declared" },
-                { "feedOn", Feed.IsOn(car) },
-                { "loads", loads },
-                { "feeds", feeds },
-                { "feeding", feeding },
+                { "loads", LoadsOf(car) },
+                { "drew", drew },
+                { "drawing", drawing },
             };
         }
 

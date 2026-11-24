@@ -17,6 +17,10 @@ namespace AuxFuelCars
     internal static class HostSetting
     {
         internal const string ObjectId = "ashenmare.aux-fuel-cars";
+        // 2.3.0: the rules the full mod gained after the embedded build's 1.2.0 (takers, engine tanks, a lash-up walk stepping over a
+        // taker or an aux car that gives nothing). src/TopUp.cs and src/OpenCars.cs are shared with the embedded build, whose own
+        // HostSetting (embedded/Seams.cs) answers false, so its behavior stays 1.2.0's.
+        internal static bool FullMod => true;
         internal const string RemoteMuKey = "remoteMu";
         // 2.0.8: rear engines work the air. Every computer steps the air for the trains it simulates (the host's air
         // corrects a client's about once a second, TrainController.SendAirIfNeeded / HandleBatchCarAirUpdate), so all of

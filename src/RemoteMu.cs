@@ -106,7 +106,7 @@ namespace AuxFuelCars
             if (air == null || !air.IsCutOut) return;
             // The same call vanilla's MU copy uses to set it (Car.SendPropertyChange, public).
             loco.SendPropertyChange(PropertyChange.Control.Throttle, 0f);
-            Util.Info("remote MU: " + loco.DisplayName + " lost its lead, throttle to idle (its air is cut out, so it has no brakes of its own)");
+            if (DebugLog.On) Util.Detail("mu-lost-lead", "remote MU: " + loco.id + " lost its lead, throttle to idle (its air is cut out, so it has no brakes of its own)");
         }
 
         private static void Postfix(BaseLocomotive __instance, ref BaseLocomotive __result)
